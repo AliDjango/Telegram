@@ -21,7 +21,9 @@ import android.view.Menu;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.accessibility.AccessibilityManager;
+import android.widget.FrameLayout;
 
 import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.ApplicationLoader;
@@ -40,6 +42,9 @@ import org.telegram.messenger.SecretChatHelper;
 import org.telegram.messenger.SendMessagesHelper;
 import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.ConnectionsManager;
+import org.telegram.ui.Components.LayoutHelper;
+
+import java.util.ArrayList;
 
 public class BaseFragment {
 
@@ -52,6 +57,7 @@ public class BaseFragment {
     protected ActionBarLayout parentLayout;
     protected ActionBar actionBar;
     protected boolean inPreviewMode;
+    protected boolean inBubbleMode;
     protected int classGuid;
     protected Bundle arguments;
     protected boolean hasOwnBackground = false;
@@ -101,6 +107,14 @@ public class BaseFragment {
         return true;
     }
 
+    public void setInBubbleMode(boolean value) {
+        inBubbleMode = value;
+    }
+
+    public boolean isInBubbleMode() {
+        return inBubbleMode;
+    }
+
     protected void setInPreviewMode(boolean value) {
         inPreviewMode = value;
         if (actionBar != null) {
@@ -110,6 +124,13 @@ public class BaseFragment {
                 actionBar.setOccupyStatusBar(Build.VERSION.SDK_INT >= 21);
             }
         }
+    }
+
+    protected void onPreviewOpenAnimationEnd() {
+    }
+
+    protected boolean hideKeyboardOnShow() {
+        return true;
     }
 
     protected void clearViews() {
@@ -151,6 +172,7 @@ public class BaseFragment {
     protected void setParentLayout(ActionBarLayout layout) {
         if (parentLayout != layout) {
             parentLayout = layout;
+            inBubbleMode = parentLayout != null && parentLayout.isInBubbleMode();
             if (fragmentView != null) {
                 ViewGroup parent = (ViewGroup) fragmentView.getParent();
                 if (parent != null) {
@@ -195,7 +217,7 @@ public class BaseFragment {
         actionBar.setItemsBackgroundColor(Theme.getColor(Theme.key_actionBarActionModeDefaultSelector), true);
         actionBar.setItemsColor(Theme.getColor(Theme.key_actionBarDefaultIcon), false);
         actionBar.setItemsColor(Theme.getColor(Theme.key_actionBarActionModeDefaultIcon), true);
-        if (inPreviewMode) {
+        if (inPreviewMode || inBubbleMode) {
             actionBar.setOccupyStatusBar(false);
         }
         return actionBar;
@@ -237,7 +259,8 @@ public class BaseFragment {
     }
 
     public void onFragmentDestroy() {
-        ConnectionsManager.getInstance(currentAccount).cancelRequestsForGuid(classGuid);
+        getConnectionsManager().cancelRequestsForGuid(classGuid);
+        getMessagesStorage().cancelTasksForGuid(classGuid);
         isFinished = true;
         if (actionBar != null) {
             actionBar.setEnabled(false);
@@ -246,6 +269,12 @@ public class BaseFragment {
 
     public boolean needDelayOpenAnimation() {
         return false;
+    }
+
+    protected void resumeDelayedFragmentAnimation() {
+        if (parentLayout != null) {
+            parentLayout.resumeDelayedFragmentAnimation();
+        }
     }
 
     public void onResume() {
@@ -302,6 +331,16 @@ public class BaseFragment {
         return parentLayout;
     }
 
+    public FrameLayout getLayoutContainer() {
+        if (fragmentView != null) {
+            final ViewParent parent = fragmentView.getParent();
+            if (parent instanceof FrameLayout) {
+                return (FrameLayout) parent;
+            }
+        }
+        return null;
+    }
+
     public boolean presentFragmentAsPreview(BaseFragment fragment) {
         return parentLayout != null && parentLayout.presentFragmentAsPreview(fragment);
     }
@@ -338,7 +377,7 @@ public class BaseFragment {
         }
     }
 
-    public void dismissCurrentDialig() {
+    public void dismissCurrentDialog() {
         if (visibleDialog == null) {
             return;
         }
@@ -372,6 +411,10 @@ public class BaseFragment {
         }
     }
 
+    protected void onTransitionAnimationProgress(boolean isOpen, float progress) {
+
+    }
+
     protected void onTransitionAnimationStart(boolean isOpen, boolean backward) {
 
     }
@@ -391,6 +434,10 @@ public class BaseFragment {
                 }
             }
         }
+    }
+
+    protected int getPreviewHeight() {
+        return LayoutHelper.MATCH_PARENT;
     }
 
     protected void onBecomeFullyHidden() {
@@ -449,7 +496,7 @@ public class BaseFragment {
 
     }
 
-    protected void onPanTranslationUpdate(int y) {
+    protected void onPanTranslationUpdate(float y) {
 
     }
 
@@ -459,10 +506,6 @@ public class BaseFragment {
 
     protected void onPanTransitionEnd() {
 
-    }
-
-    public int getCurrentPanTranslationY() {
-        return parentLayout != null ? parentLayout.getCurrentPanTranslationY() : 0;
     }
 
     public Dialog getVisibleDialog() {
@@ -477,8 +520,8 @@ public class BaseFragment {
         return false;
     }
 
-    public ThemeDescription[] getThemeDescriptions() {
-        return new ThemeDescription[0];
+    public ArrayList<ThemeDescription> getThemeDescriptions() {
+        return new ArrayList<>();
     }
 
     public AccountInstance getAccountInstance() {
@@ -501,7 +544,7 @@ public class BaseFragment {
         return getAccountInstance().getConnectionsManager();
     }
 
-    protected LocationController getLocationController() {
+    public LocationController getLocationController() {
         return getAccountInstance().getLocationController();
     }
 
@@ -509,7 +552,7 @@ public class BaseFragment {
         return getAccountInstance().getNotificationsController();
     }
 
-    protected MessagesStorage getMessagesStorage() {
+    public MessagesStorage getMessagesStorage() {
         return getAccountInstance().getMessagesStorage();
     }
 
@@ -543,5 +586,11 @@ public class BaseFragment {
 
     public UserConfig getUserConfig() {
         return getAccountInstance().getUserConfig();
+    }
+
+    public void setFragmentPanTranslationOffset(int offset) {
+        if (parentLayout != null) {
+            parentLayout.setFragmentPanTranslationOffset(offset);
+        }
     }
 }

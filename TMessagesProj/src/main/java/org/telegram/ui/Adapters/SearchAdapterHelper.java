@@ -75,6 +75,7 @@ public class SearchAdapterHelper {
     private String lastFoundChannel;
 
     private boolean allResultsAreGlobal;
+    private boolean allowGlobalResults = true;
 
     private ArrayList<HashtagObject> hashtags;
     private HashMap<String, HashtagObject> hashtagsByText;
@@ -86,8 +87,12 @@ public class SearchAdapterHelper {
         public CharSequence name;
     }
 
-    public SearchAdapterHelper(boolean global) {
-        allResultsAreGlobal = global;
+    public SearchAdapterHelper(boolean allAsGlobal) {
+        allResultsAreGlobal = allAsGlobal;
+    }
+
+    public void setAllowGlobalResults(boolean value) {
+        allowGlobalResults = value;
     }
 
     public boolean isSearchInProgress() {
@@ -217,13 +222,13 @@ public class SearchAdapterHelper {
                                         chat = chatsMap.get(peer.channel_id);
                                     }
                                     if (chat != null) {
-                                        if (!allowChats || canAddGroupsOnly && !ChatObject.canAddBotsToChat(chat)) {
+                                        if (!allowChats || canAddGroupsOnly && !ChatObject.canAddBotsToChat(chat) || !allowGlobalResults && ChatObject.isNotInChat(chat)) {
                                             continue;
                                         }
                                         globalSearch.add(chat);
                                         globalSearchMap.put(-chat.id, chat);
                                     } else if (user != null) {
-                                        if (canAddGroupsOnly || !allowBots && user.bot || !allowSelf && user.self) {
+                                        if (canAddGroupsOnly || !allowBots && user.bot || !allowSelf && user.self || !allowGlobalResults && b == 1 && !user.contact) {
                                             continue;
                                         }
                                         globalSearch.add(user);
@@ -458,14 +463,16 @@ public class SearchAdapterHelper {
                     state.step();
                 }
                 state.dispose();
-                MessagesStorage.getInstance(currentAccount).getDatabase().commitTransaction();
-                if (arrayList.size() >= 100) {
-                    MessagesStorage.getInstance(currentAccount).getDatabase().beginTransaction();
+                if (arrayList.size() > 100) {
+                    state = MessagesStorage.getInstance(currentAccount).getDatabase().executeFast("DELETE FROM hashtag_recent_v2 WHERE id = ?");
                     for (int a = 100; a < arrayList.size(); a++) {
-                        MessagesStorage.getInstance(currentAccount).getDatabase().executeFast("DELETE FROM hashtag_recent_v2 WHERE id = '" + arrayList.get(a).hashtag + "'").stepThis().dispose();
+                        state.requery();
+                        state.bindString(1, arrayList.get(a).hashtag);
+                        state.step();
                     }
-                    MessagesStorage.getInstance(currentAccount).getDatabase().commitTransaction();
+                    state.dispose();
                 }
+                MessagesStorage.getInstance(currentAccount).getDatabase().commitTransaction();
             } catch (Exception e) {
                 FileLog.e(e);
             }

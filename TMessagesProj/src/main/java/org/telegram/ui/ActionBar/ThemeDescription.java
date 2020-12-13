@@ -353,6 +353,10 @@ public class ThemeDescription {
             }
         } else if (viewToInvalidate instanceof ContextProgressView) {
             ((ContextProgressView) viewToInvalidate).updateColors();
+        } else if (viewToInvalidate instanceof SeekBarView) {
+            if ((changeFlags & FLAG_PROGRESSBAR) != 0) {
+                ((SeekBarView) viewToInvalidate).setOuterColor(color);
+            }
         }
         if ((changeFlags & FLAG_TEXTCOLOR) != 0) {
             if ((changeFlags & FLAG_CHECKTAG) == 0 || checkTag(currentKey, viewToInvalidate)) {
@@ -430,9 +434,7 @@ public class ThemeDescription {
         if (viewToInvalidate instanceof RecyclerListView) {
             RecyclerListView recyclerListView = (RecyclerListView) viewToInvalidate;
             if ((changeFlags & FLAG_SELECTOR) != 0) {
-                if (currentKey.equals(Theme.key_listSelector)) {
-                    recyclerListView.setListSelectorColor(color);
-                }
+                recyclerListView.setListSelectorColor(color);
             }
             if ((changeFlags & FLAG_FASTSCROLL) != 0) {
                 recyclerListView.updateFastScrollColors();
